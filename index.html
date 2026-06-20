@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stone Layout Designer — 石材排版設計</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header id="topbar">
+    <div class="brand">🪨 Stone Layout Designer</div>
+    <div class="hint">左側工具列直向排列 · 拖曳中間分隔線調整左右寬度</div>
+  </header>
+
+  <main id="workspace">
+    <!-- 垂直工具列 -->
+    <nav id="toolrail">
+      <div class="trgroup">石材</div>
+      <label class="tbtn"><input type="file" id="addSlabInput" accept="image/*" hidden>🖼 加入石材</label>
+      <div class="trgroup">零件</div>
+      <button class="tbtn" id="addPartBtn">＋ 矩形</button>
+      <button class="tbtn" id="addTriBtn">＋ 三角</button>
+      <button class="tbtn" id="polyBtn" title="鋼筆：點=角點、拖曳=弧線">✎ 多邊形/鋼筆</button>
+      <button class="tbtn" id="nodeBtn" title="進入/離開節點編輯（調整貝茲曲線）">◉ 節點編輯</button>
+      <div class="trgroup">排版</div>
+      <button class="tbtn" id="rotate2dBtn" title="平面旋轉 15°，Shift = 90°（2D 排版方向）">⟳ 平面旋轉 (R)</button>
+      <div class="trgroup">視圖</div>
+      <button class="tbtn" id="gridBtn" title="磁吸格線開關">▦ 格線：關</button>
+      <button class="tbtn" id="fitBtn" title="2D 視圖符合視窗">⤢ 符合視窗</button>
+      <div class="trgroup">檔案</div>
+      <button class="tbtn" id="saveBtn">💾 存檔</button>
+      <label class="tbtn"><input type="file" id="loadInput" accept="application/json,.json" hidden>📂 讀檔</label>
+      <button class="tbtn" id="exportBtn" title="以石材左上角為原點輸出各零件頂點座標(cm)">📐 輸出座標</button>
+      <div class="trgroup">編輯</div>
+      <button class="tbtn" id="undoBtn" title="復原 (Ctrl+Z)">↩ 復原 (Ctrl+Z)</button>
+      <button class="tbtn" id="redoBtn" title="重做 (Ctrl+Y / Ctrl+Shift+Z)">↪ 重做 (Ctrl+Y)</button>
+      <button class="tbtn danger" id="deleteBtn">🗑 刪除 (Del)</button>
+      <button class="tbtn" id="resetBtn">↺ 重置</button>
+    </nav>
+
+    <!-- 左側：屬性 + 平面/材質 -->
+    <section id="leftCol">
+      <div id="slabPanel">
+        <div class="panelhead">
+          <h3>平面 / 材質 — 排版 (Nesting)</h3>
+          <div class="hint">把零件拖到石材上 → 右側 3D 即時貼圖</div>
+        </div>
+        <div id="slabList" class="muted">尚未匯入石材，請點左側工具列「加入石材」</div>
+        <div id="statsBar" class="muted">用料率：—</div>
+        <div id="drawToolbar" hidden>
+          <span id="drawInfo">繪製中：0 點</span>
+          <span class="dhint">點=角點 · 拖曳=弧線</span>
+          <button class="btn small active" id="finishPolyBtn">✓ 完成 (Enter)</button>
+          <button class="btn small danger" id="cancelPolyBtn">✕ 取消 (Esc)</button>
+        </div>
+        <div id="canvasWrap2d">
+          <canvas id="canvas2d"></canvas>
+        </div>
+      </div>
+
+      <div id="propPanel">
+        <h3>屬性 Properties</h3>
+        <div id="noSelect" class="muted">未選取零件</div>
+        <div id="propForm" hidden>
+          <label>名稱 <input type="text" id="pName"></label>
+          <label>寬 Width (cm) <input type="number" id="pWidth" step="0.5"></label>
+          <label>深 Depth (cm) <input type="number" id="pDepth" step="0.5"></label>
+          <label>板厚 Thickness (cm) <input type="number" id="pThick" step="0.1"></label>
+          <label>離地高 Elevation (cm) <input type="number" id="pElev" step="0.5"></label>
+          <div class="readout" id="pReadout"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 可拖曳分隔線 -->
+    <div id="splitter" title="拖曳調整左右寬度"></div>
+
+    <!-- 右側：3D 組裝 -->
+    <section id="rightCol">
+      <div class="panelhead" id="head3d">
+        <h3>3D 組裝模型</h3>
+        <div class="r3dtools">
+          <button class="btn small" id="moveBtn" title="移動：顯示 XYZ 三軸箭頭，拖曳箭頭沿該軸移動">✥ 移動</button>
+          <button class="btn small" id="rot3dBtn" title="旋轉：顯示 XYZ 旋轉圓環，拖曳旋轉（吸附 22.5°，Shift 微調）">⟳ 旋轉</button>
+          <button class="btn small" id="rotReset" title="歸正 3D 旋轉">歸正</button>
+          <span class="dhint">|</span>
+          <button class="btn small" id="standEdgeBtn" title="選底邊立起：按下後點零件的一條邊，零件會以該邊為底立起">⊥ 立起(選底邊)</button>
+          <button class="btn small" id="snapBtn" title="與最近零件對齊並留間距">⇲ 對齊 (A)</button>
+          <button class="btn small" id="orientBtn" title="邊線接合：先點選取零件的一條邊，再點目標零件的一條邊">⧉ 邊線接合 (O)</button>
+        </div>
+        <div class="bgtoggle">
+          背景：
+          <button class="btn small active" id="bgDarkBtn">深色</button>
+          <button class="btn small" id="bgLightBtn">淺色</button>
+        </div>
+        <div class="hint">左鍵旋轉鏡頭 · 滾輪縮放 · 拖曳零件移動 · 點選零件編輯</div>
+      </div>
+      <div id="canvasWrap3d">
+        <div id="rotBadge"></div>
+      </div>
+    </section>
+  </main>
+
+  <div id="status">就緒。</div>
+
+  <!-- 匯入石材尺寸對話框 -->
+  <div id="slabDialog" class="modal" hidden>
+    <div class="modalbox">
+      <h3>設定石材實際尺寸</h3>
+      <img id="sdPreview" alt="預覽">
+      <label>名稱 <input type="text" id="sdName"></label>
+      <div class="row">
+        <label>寬 Width <input type="number" id="sdW" step="0.1" min="1"></label>
+        <label>高 Height <input type="number" id="sdH" step="0.1" min="1"></label>
+        <label>單位 <select id="sdUnit"><option value="in">in 英吋</option><option value="cm">cm 公分</option><option value="mm">mm 公釐</option></select></label>
+      </div>
+      <label class="chk"><input type="checkbox" id="sdLock" checked> 鎖定照片比例</label>
+      <div class="actions">
+        <button class="btn" id="sdCancel">取消</button>
+        <button class="btn active" id="sdOk">確定匯入</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 輸出座標對話框 -->
+  <div id="exportDialog" class="modal" hidden>
+    <div class="modalbox wide">
+      <h3>輸出切版座標（cm，原點＝石材左上角，X→右、Y→下）</h3>
+      <textarea id="exportText" readonly></textarea>
+      <div class="actions">
+        <button class="btn" id="exCopy">複製</button>
+        <button class="btn" id="exTxt">下載 TXT</button>
+        <button class="btn" id="exCsv">下載 CSV</button>
+        <button class="btn" id="exJson">下載 JSON</button>
+        <button class="btn active" id="exClose">關閉</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Three.js (classic build, file:// 相容) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
